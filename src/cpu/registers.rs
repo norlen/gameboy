@@ -1,3 +1,4 @@
+#[derive(Default)]
 pub struct Registers {
     pub a: u8,
     pub b: u8,
@@ -69,6 +70,7 @@ fn split(value: u16) -> (u8, u8) {
     (high, low)
 }
 
+#[derive(Debug, Default)]
 pub struct Flags(pub u8);
 
 impl Flags {
@@ -93,8 +95,28 @@ impl Flags {
         (self.0 >> Self::CARRY) & 0b1
     }
 
+    pub fn zero_is_set(&self) -> bool {
+        (self.0 >> Self::ZERO) & 0b1 != 0
+    }
+
+    pub fn subtract_is_set(&self) -> bool {
+        (self.0 >> Self::SUBTRACT) & 0b1 != 0
+    }
+
+    pub fn half_carry_is_set(&self) -> bool {
+        (self.0 >> Self::HALF_CARRY) & 0b1 != 0
+    }
+
+    pub fn carry_is_set(&self) -> bool {
+        (self.0 >> Self::CARRY) & 0b1 != 0
+    }
+
     pub fn setc(&mut self, condition: bool, bit: u8) {
-        self.0 |= (if condition { 0b1 } else { 0b0 }) << bit;
+        if condition {
+            self.set(bit);
+        } else {
+            self.clear(bit);
+        }
     }
 
     pub fn set(&mut self, bit: u8) {
