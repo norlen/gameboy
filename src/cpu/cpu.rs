@@ -466,39 +466,117 @@ impl CPU {
 
     // Rotate bits in register left through carry.
     fn rl(&mut self, value: u8) -> u8 {
-        todo!()
+        // The most significant bit is set to carry
+        // and the carry is shifted in into the least significant bit
+        let carry_mask = self.registers.f.carry() | 0b1111_1110;
+
+        let new_value = value.rotate_left(1) & carry_mask;
+        self.registers.f.setc(new_value & 0x1 == 1, Flags::CARRY);
+        self.registers.f.setc(new_value == 0, Flags::ZERO);
+        self.registers.f.clear(Flags::HALF_CARRY);
+        self.registers.f.clear(Flags::SUBTRACT);
+        
+        new_value
     }
 
-    fn rla(&mut self, value: u8) -> u8 {
-        todo!()
+    // Rorate register a left through carry.
+    fn rla(&mut self) {
+        self.registers.a = self.rl(self.registers.a);
+        self.registers.f.set(Flags::ZERO); // This instruction always puts it to zero.
     }
 
+    // Rotate register left.
     fn rlc(&mut self, value: u8) -> u8 {
-        todo!()
+        // Rotates C <- [7 <- 0] <- 7
+        let new_value = value.rotate_left(1);
+        self.registers.f.setc(new_value & 0x1 == 1, Flags::CARRY);
+        self.registers.f.setc(new_value == 0, Flags::ZERO);
+        self.registers.f.clear(Flags::HALF_CARRY);
+        self.registers.f.clear(Flags::SUBTRACT);
+
+        new_value
     }
 
+    // Rotate register a left.
+    fn rlca(&mut self) {
+        self.registers.a = self.rlc(self.registers.a);
+        self.registers.f.set(Flags::ZERO); // This instruction always puts it to zero.
+    }
+
+    // Rotate register right through carry.
     fn rr(&mut self, value: u8) -> u8 {
-        todo!()
+        // C -> [7 -> 0] -> C
+        let carry_mask = self.registers.f.carry() << 7 | 0b0111_1111;
+
+        let new_value = value.rotate_right(1) & carry_mask;
+        self.registers.f.setc(value & 0x1 == 1, Flags::CARRY);
+        self.registers.f.setc(new_value == 0, Flags::ZERO);
+        self.registers.f.clear(Flags::HALF_CARRY);
+        self.registers.f.clear(Flags::SUBTRACT);
+        
+        new_value
     }
 
-    fn rra(&mut self, value: u8) -> u8 {
-        todo!()
+    // Rotate register a right through carry.
+    fn rra(&mut self) {
+        self.registers.a = self.rr(self.registers.a);
+        self.registers.f.set(Flags::ZERO); // This instruction always puts it to zero.
     }
 
+    // Rotate register right.
     fn rrc(&mut self, value: u8) -> u8 {
-        todo!()
+        // [0] -> [7 -> 0] -> C
+        let new_value = value.rotate_right(1);
+        self.registers.f.setc(value & 0x1 == 1, Flags::CARRY);
+        self.registers.f.setc(new_value == 0, Flags::ZERO);
+        self.registers.f.clear(Flags::HALF_CARRY);
+        self.registers.f.clear(Flags::SUBTRACT);
+
+        new_value
     }
 
+    // Rotate register a right.
+    fn rrca(&mut self) {
+        self.registers.a = self.rrc(self.registers.a);
+        self.registers.f.set(Flags::ZERO); // This instruction always puts it to zero.
+    }
+
+    // Shift left arithmetic for register
     fn sla(&mut self, value: u8) -> u8 {
-        todo!()
+        let carry = value >> 7 & 0x1;
+        self.registers.f.setc(carry == 1, Flags::CARRY);
+        let new_value = value << 1;
+        
+        self.registers.f.setc(new_value == 0, Flags::ZERO);
+        self.registers.f.clear(Flags::HALF_CARRY);
+        self.registers.f.clear(Flags::SUBTRACT);
+
+        new_value
     }
 
+    // Shift right arithmetic
     fn sra(&mut self, value: u8) -> u8 {
-        todo!()
+        self.registers.f.setc(value & 0x1 == 1, Flags::CARRY);
+        let mask = value | 0b0111_1111;
+        let new_value = value >> 1 & mask;
+
+        self.registers.f.setc(new_value == 0, Flags::ZERO);
+        self.registers.f.clear(Flags::HALF_CARRY);
+        self.registers.f.clear(Flags::SUBTRACT);
+
+        new_value
     }
 
+    // Shift right logical. Zero is put as the most significant bit.
     fn srl(&mut self, value: u8) -> u8 {
-        todo!()
+        self.registers.f.setc(value & 0x1 == 1, Flags::CARRY);
+        let new_value = value >> 1;
+
+        self.registers.f.setc(new_value == 0, Flags::ZERO);
+        self.registers.f.clear(Flags::HALF_CARRY);
+        self.registers.f.clear(Flags::SUBTRACT);
+
+        new_value
     }
 
     // Bit operation instructions.
@@ -528,142 +606,159 @@ impl CPU {
 
     fn execute_prefixed(&mut self, instruction: u8) -> u16 {
         match instruction {
-            0x00 => todo!("unimplemented prefix instruction"),
-            0x01 => todo!("unimplemented prefix instruction"),
-            0x02 => todo!("unimplemented prefix instruction"),
-            0x03 => todo!("unimplemented prefix instruction"),
-            0x04 => todo!("unimplemented prefix instruction"),
-            0x05 => todo!("unimplemented prefix instruction"),
-            0x06 => todo!("unimplemented prefix instruction"),
-            0x07 => todo!("unimplemented prefix instruction"),
-            0x08 => todo!("unimplemented prefix instruction"),
-            0x09 => todo!("unimplemented prefix instruction"),
-            0x0a => todo!("unimplemented prefix instruction"),
-            0x0b => todo!("unimplemented prefix instruction"),
-            0x0c => todo!("unimplemented prefix instruction"),
-            0x0d => todo!("unimplemented prefix instruction"),
-            0x0e => todo!("unimplemented prefix instruction"),
-            0x0f => todo!("unimplemented prefix instruction"),
+            0x00 => self.registers.b = self.rlc(self.registers.b),
+            0x01 => self.registers.c = self.rlc(self.registers.c),
+            0x02 => self.registers.d = self.rlc(self.registers.d),
+            0x03 => self.registers.e = self.rlc(self.registers.e),
+            0x04 => self.registers.h = self.rlc(self.registers.h),
+            0x05 => self.registers.l = self.rlc(self.registers.l),
+            0x06 => todo!("unimplemented prefix instruction"), // RLC (HL)
+            0x07 => self.registers.a = self.rlc(self.registers.d),
 
-            0x10 => todo!("unimplemented prefix instruction"),
-            0x11 => todo!("unimplemented prefix instruction"),
-            0x12 => todo!("unimplemented prefix instruction"),
-            0x13 => todo!("unimplemented prefix instruction"),
-            0x14 => todo!("unimplemented prefix instruction"),
-            0x15 => todo!("unimplemented prefix instruction"),
-            0x16 => todo!("unimplemented prefix instruction"),
-            0x17 => todo!("unimplemented prefix instruction"),
-            0x18 => todo!("unimplemented prefix instruction"),
-            0x19 => todo!("unimplemented prefix instruction"),
-            0x1a => todo!("unimplemented prefix instruction"),
-            0x1b => todo!("unimplemented prefix instruction"),
-            0x1c => todo!("unimplemented prefix instruction"),
-            0x1d => todo!("unimplemented prefix instruction"),
-            0x1e => todo!("unimplemented prefix instruction"),
-            0x1f => todo!("unimplemented prefix instruction"),
+            0x08 => self.registers.b = self.rrc(self.registers.b),
+            0x09 => self.registers.c = self.rrc(self.registers.c),
+            0x0a => self.registers.d = self.rrc(self.registers.d),
+            0x0b => self.registers.e = self.rrc(self.registers.e),
+            0x0c => self.registers.h = self.rrc(self.registers.h),
+            0x0d => self.registers.l = self.rrc(self.registers.l),
+            0x0e => todo!("unimplemented prefix instruction"), // RRC (HL)
+            0x0f => self.registers.a = self.rrc(self.registers.a),
 
-            0x20 => todo!("unimplemented prefix instruction"),
-            0x21 => todo!("unimplemented prefix instruction"),
-            0x22 => todo!("unimplemented prefix instruction"),
-            0x23 => todo!("unimplemented prefix instruction"),
-            0x24 => todo!("unimplemented prefix instruction"),
-            0x25 => todo!("unimplemented prefix instruction"),
-            0x26 => todo!("unimplemented prefix instruction"),
-            0x27 => todo!("unimplemented prefix instruction"),
-            0x28 => todo!("unimplemented prefix instruction"),
-            0x29 => todo!("unimplemented prefix instruction"),
-            0x2a => todo!("unimplemented prefix instruction"),
-            0x2b => todo!("unimplemented prefix instruction"),
-            0x2c => todo!("unimplemented prefix instruction"),
-            0x2d => todo!("unimplemented prefix instruction"),
-            0x2e => todo!("unimplemented prefix instruction"),
-            0x2f => todo!("unimplemented prefix instruction"),
+            // 0x1x
+            0x10 => self.registers.b = self.rl(self.registers.b),
+            0x11 => self.registers.c = self.rl(self.registers.c),
+            0x12 => self.registers.d = self.rl(self.registers.d),
+            0x13 => self.registers.e = self.rl(self.registers.e),
+            0x14 => self.registers.h = self.rl(self.registers.h),
+            0x15 => self.registers.l = self.rl(self.registers.l),
+            0x16 => todo!("unimplemented prefix instruction"), // RL (HL)
+            0x17 => self.registers.a = self.rl(self.registers.a),
 
-            0x30 => todo!("unimplemented prefix instruction"),
-            0x31 => todo!("unimplemented prefix instruction"),
-            0x32 => todo!("unimplemented prefix instruction"),
-            0x33 => todo!("unimplemented prefix instruction"),
-            0x34 => todo!("unimplemented prefix instruction"),
-            0x35 => todo!("unimplemented prefix instruction"),
-            0x36 => todo!("unimplemented prefix instruction"),
-            0x37 => todo!("unimplemented prefix instruction"),
-            0x38 => todo!("unimplemented prefix instruction"),
-            0x39 => todo!("unimplemented prefix instruction"),
-            0x3a => todo!("unimplemented prefix instruction"),
-            0x3b => todo!("unimplemented prefix instruction"),
-            0x3c => todo!("unimplemented prefix instruction"),
-            0x3d => todo!("unimplemented prefix instruction"),
-            0x3e => todo!("unimplemented prefix instruction"),
-            0x3f => todo!("unimplemented prefix instruction"),
+            0x18 => self.registers.b = self.rr(self.registers.b),
+            0x19 => self.registers.c = self.rr(self.registers.c),
+            0x1a => self.registers.d = self.rr(self.registers.d),
+            0x1b => self.registers.e = self.rr(self.registers.e),
+            0x1c => self.registers.h = self.rr(self.registers.h),
+            0x1d => self.registers.l = self.rr(self.registers.l),
+            0x1e => todo!("unimplemented prefix instruction"), // RR (HL)
+            0x1f => self.registers.a = self.rr(self.registers.a),
 
-            0x40 => todo!("unimplemented prefix instruction"),
-            0x41 => todo!("unimplemented prefix instruction"),
-            0x42 => todo!("unimplemented prefix instruction"),
-            0x43 => todo!("unimplemented prefix instruction"),
-            0x44 => todo!("unimplemented prefix instruction"),
-            0x45 => todo!("unimplemented prefix instruction"),
+            // 0x2x
+            0x20 => self.registers.b = self.sla(self.registers.b),
+            0x21 => self.registers.c = self.sla(self.registers.c),
+            0x22 => self.registers.d = self.sla(self.registers.d),
+            0x23 => self.registers.e = self.sla(self.registers.e),
+            0x24 => self.registers.h = self.sla(self.registers.h),
+            0x25 => self.registers.l = self.sla(self.registers.l),
+            0x26 => todo!("unimplemented prefix instruction"), // SLA (HL)
+            0x27 => self.registers.a = self.sla(self.registers.a),
+
+            0x28 => self.registers.b = self.sra(self.registers.b),
+            0x29 => self.registers.c = self.sra(self.registers.c),
+            0x2a => self.registers.d = self.sra(self.registers.d),
+            0x2b => self.registers.e = self.sra(self.registers.e),
+            0x2c => self.registers.h = self.sra(self.registers.h),
+            0x2d => self.registers.l = self.sra(self.registers.l),
+            0x2e => todo!("unimplemented prefix instruction"), // SRA (HL)
+            0x2f => self.registers.a = self.sra(self.registers.a),
+
+            // 0x3x
+            0x30 => self.registers.b = self.swap(self.registers.b),
+            0x31 => self.registers.c = self.swap(self.registers.c),
+            0x32 => self.registers.d = self.swap(self.registers.d),
+            0x33 => self.registers.e = self.swap(self.registers.e),
+            0x34 => self.registers.h = self.swap(self.registers.h),
+            0x35 => self.registers.l = self.swap(self.registers.l),
+            0x36 => todo!("unimplemented prefix instruction"), // SWAP (HL)
+            0x37 => self.registers.a = self.swap(self.registers.a),
+
+            0x38 => self.registers.b = self.srl(self.registers.b),
+            0x39 => self.registers.c = self.srl(self.registers.c),
+            0x3a => self.registers.d = self.srl(self.registers.d),
+            0x3b => self.registers.e = self.srl(self.registers.e),
+            0x3c => self.registers.h = self.srl(self.registers.h),
+            0x3d => self.registers.l = self.srl(self.registers.l),
+            0x3e => todo!("unimplemented prefix instruction"), // SRL (HL)
+            0x3f => self.registers.a = self.srl(self.registers.a),
+
+            // 0x4x
+            0x40 => self.bit(0, self.registers.b),
+            0x41 => self.bit(0, self.registers.c),
+            0x42 => self.bit(0, self.registers.d),
+            0x43 => self.bit(0, self.registers.e),
+            0x44 => self.bit(0, self.registers.h),
+            0x45 => self.bit(0, self.registers.l),
             0x46 => todo!("unimplemented prefix instruction"),
-            0x47 => todo!("unimplemented prefix instruction"),
-            0x48 => todo!("unimplemented prefix instruction"),
-            0x49 => todo!("unimplemented prefix instruction"),
-            0x4a => todo!("unimplemented prefix instruction"),
-            0x4b => todo!("unimplemented prefix instruction"),
-            0x4c => todo!("unimplemented prefix instruction"),
-            0x4d => todo!("unimplemented prefix instruction"),
+            0x47 => self.bit(0, self.registers.a),
+
+            0x48 => self.bit(1, self.registers.b),
+            0x49 => self.bit(1, self.registers.c),
+            0x4a => self.bit(1, self.registers.d),
+            0x4b => self.bit(1, self.registers.e),
+            0x4c => self.bit(1, self.registers.h),
+            0x4d => self.bit(1, self.registers.l),
             0x4e => todo!("unimplemented prefix instruction"),
-            0x4f => todo!("unimplemented prefix instruction"),
+            0x4f => self.bit(1, self.registers.a),
 
-            0x50 => todo!("unimplemented prefix instruction"),
-            0x51 => todo!("unimplemented prefix instruction"),
-            0x52 => todo!("unimplemented prefix instruction"),
-            0x53 => todo!("unimplemented prefix instruction"),
-            0x54 => todo!("unimplemented prefix instruction"),
-            0x55 => todo!("unimplemented prefix instruction"),
+            // 0x5x
+            0x50 => self.bit(2, self.registers.b),
+            0x51 => self.bit(2, self.registers.c),
+            0x52 => self.bit(2, self.registers.d),
+            0x53 => self.bit(2, self.registers.e),
+            0x54 => self.bit(2, self.registers.h),
+            0x55 => self.bit(2, self.registers.l),
             0x56 => todo!("unimplemented prefix instruction"),
-            0x57 => todo!("unimplemented prefix instruction"),
-            0x58 => todo!("unimplemented prefix instruction"),
-            0x59 => todo!("unimplemented prefix instruction"),
-            0x5a => todo!("unimplemented prefix instruction"),
-            0x5b => todo!("unimplemented prefix instruction"),
-            0x5c => todo!("unimplemented prefix instruction"),
-            0x5d => todo!("unimplemented prefix instruction"),
+            0x57 => self.bit(2, self.registers.a),
+
+            0x58 => self.bit(3, self.registers.b),
+            0x59 => self.bit(3, self.registers.c),
+            0x5a => self.bit(3, self.registers.d),
+            0x5b => self.bit(3, self.registers.e),
+            0x5c => self.bit(3, self.registers.h),
+            0x5d => self.bit(3, self.registers.l),
             0x5e => todo!("unimplemented prefix instruction"),
-            0x5f => todo!("unimplemented prefix instruction"),
+            0x5f => self.bit(3, self.registers.a),
 
-            0x60 => todo!("unimplemented prefix instruction"),
-            0x61 => todo!("unimplemented prefix instruction"),
-            0x62 => todo!("unimplemented prefix instruction"),
-            0x63 => todo!("unimplemented prefix instruction"),
-            0x64 => todo!("unimplemented prefix instruction"),
-            0x65 => todo!("unimplemented prefix instruction"),
+            // 0x6x
+            0x60 => self.bit(4, self.registers.b),
+            0x61 => self.bit(4, self.registers.c),
+            0x62 => self.bit(4, self.registers.d),
+            0x63 => self.bit(4, self.registers.e),
+            0x64 => self.bit(4, self.registers.h),
+            0x65 => self.bit(4, self.registers.l),
             0x66 => todo!("unimplemented prefix instruction"),
-            0x67 => todo!("unimplemented prefix instruction"),
-            0x68 => todo!("unimplemented prefix instruction"),
-            0x69 => todo!("unimplemented prefix instruction"),
-            0x6a => todo!("unimplemented prefix instruction"),
-            0x6b => todo!("unimplemented prefix instruction"),
-            0x6c => todo!("unimplemented prefix instruction"),
-            0x6d => todo!("unimplemented prefix instruction"),
+            0x67 => self.bit(4, self.registers.a),
+
+            0x68 => self.bit(5, self.registers.b),
+            0x69 => self.bit(5, self.registers.c),
+            0x6a => self.bit(5, self.registers.d),
+            0x6b => self.bit(5, self.registers.e),
+            0x6c => self.bit(5, self.registers.h),
+            0x6d => self.bit(5, self.registers.l),
             0x6e => todo!("unimplemented prefix instruction"),
-            0x6f => todo!("unimplemented prefix instruction"),
+            0x6f => self.bit(5, self.registers.a),
 
-            0x70 => todo!("unimplemented prefix instruction"),
-            0x71 => todo!("unimplemented prefix instruction"),
-            0x72 => todo!("unimplemented prefix instruction"),
-            0x73 => todo!("unimplemented prefix instruction"),
-            0x74 => todo!("unimplemented prefix instruction"),
-            0x75 => todo!("unimplemented prefix instruction"),
+
+            // 0x7x
+            0x70 => self.bit(6, self.registers.b),
+            0x71 => self.bit(6, self.registers.c),
+            0x72 => self.bit(6, self.registers.d),
+            0x73 => self.bit(6, self.registers.e),
+            0x74 => self.bit(6, self.registers.h),
+            0x75 => self.bit(6, self.registers.l),
             0x76 => todo!("unimplemented prefix instruction"),
-            0x77 => todo!("unimplemented prefix instruction"),
-            0x78 => todo!("unimplemented prefix instruction"),
-            0x79 => todo!("unimplemented prefix instruction"),
-            0x7a => todo!("unimplemented prefix instruction"),
-            0x7b => todo!("unimplemented prefix instruction"),
-            0x7c => todo!("unimplemented prefix instruction"),
-            0x7d => todo!("unimplemented prefix instruction"),
-            0x7e => todo!("unimplemented prefix instruction"),
-            0x7f => todo!("unimplemented prefix instruction"),
+            0x77 => self.bit(6, self.registers.a),
 
+            0x78 => self.bit(7, self.registers.b),
+            0x79 => self.bit(7, self.registers.c),
+            0x7a => self.bit(7, self.registers.d),
+            0x7b => self.bit(7, self.registers.e),
+            0x7c => self.bit(7, self.registers.h),
+            0x7d => self.bit(7, self.registers.l),
+            0x7e => todo!("unimplemented prefix instruction"),
+            0x7f => self.bit(7, self.registers.a),
+
+            // 0x8x
             0x80 => todo!("unimplemented prefix instruction"),
             0x81 => todo!("unimplemented prefix instruction"),
             0x82 => todo!("unimplemented prefix instruction"),
