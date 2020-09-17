@@ -43,6 +43,26 @@ impl CPU {
         todo!()
     }
 
+    fn daa(&self) {
+        todo!()
+    }
+
+    // Jump instructions.
+
+    // Stack instructions.
+
+    // Pushes a 16 big register to the stack.
+    fn push_r16(&mut self, value: u16) {
+        self.registers.sp -= 2;
+        self.bus.write_u16(self.registers.sp, value);
+    }
+
+    fn pop_r16(&mut self) -> u16 {
+        let value = self.bus.read_u16(self.registers.sp);
+        self.registers.sp += 2;
+        value
+    }
+
     /// And `a` with `value` and store the result in `a`.
     /// Flags: Z, N0, H1, C0.
     fn and(&mut self, value: u8) {
@@ -153,6 +173,11 @@ impl CPU {
         }
     }
 
+    fn dec_a8(&mut self, addr: u16) {
+        let value = self.dec_u8(self.bus.read_u8(addr));
+        self.bus.write_u8(addr, value);
+    }
+
     fn inc_u8(&mut self, value: u8) -> u8 {
         let new_value = value.wrapping_add(value);
 
@@ -161,6 +186,11 @@ impl CPU {
         let half_carry = hc_overflow(self.registers.a, value);
         self.registers.f.setc(half_carry, Flags::HALF_CARRY);
         new_value
+    }
+
+    fn inc_a8(&mut self, addr: u16) {
+        let value = self.inc_u8(self.bus.read_u8(addr));
+        self.bus.write_u8(addr, value);
     }
 
     fn inc_u16(&mut self, value: u16) -> u16 {
@@ -216,47 +246,72 @@ impl CPU {
         self.bus.write_u8(addr, value);
     }
 
+    // LD r8, d8
+    fn ld_r8_d8(&self) -> u8 {
+        self.bus.read_u8(self.pc + 1)
+    }
+
+    // LD r8, (r16)
+    fn ld_r8_a16(&self, addr: u16) -> u8 {
+        self.bus.read_u8(addr)
+    }
+
+    // LD r16, d16
+    fn ld_r16_d16(&self) -> u16 {
+        self.bus.read_u16(self.pc + 1)
+    }
+
+    // LD (a16), SP
+    fn ld_a16_sp(&mut self) {
+        // Store SP & $FF at address n16 and SP >> 8 at address n16 + 1.
+        let addr = self.bus.read_u16(self.pc + 1);
+        let lower = self.registers.sp as u8;
+        let upper = (self.registers.sp >> 8) as u8;
+        self.bus.write_u8(addr, lower);
+        self.bus.write_u8(addr, upper);
+    }
+
     fn execute(&mut self, instruction: u8) -> u16 {
         match instruction {
             // 0x0X
             0x00 => self.nop(),
-            0x01 => self.stop(),
+            0x01 => self.registers.set_bc(self.ld_r16_d16()),
             0x02 => self.ld_a_r8(self.registers.bc(), self.registers.a),
             0x03 => self.inc_r16(Register16::BC),
             0x04 => self.registers.b = self.inc_u8(self.registers.b),
             0x05 => self.registers.b = self.dec_u8(self.registers.b),
-            0x06 => todo!("unimplemented instruction"),
+            0x06 => self.registers.b = self.ld_r8_d8(),
             0x07 => self.rlca(),
-            0x08 => todo!("unimplemented instruction"),
+            0x08 => self.ld_a16_sp(),
             0x09 => self.add_hl_r16(self.registers.bc()), // ADD HL, BC
-            0x0a => todo!("unimplemented instruction"),
+            0x0a => self.registers.a = self.ld_r8_a16(self.registers.bc()),
             0x0b => self.dec_r16(Register16::BC),
             0x0c => self.registers.c = self.inc_u8(self.registers.c),
             0x0d => self.registers.c = self.dec_u8(self.registers.c),
-            0x0e => todo!("unimplemented instruction"),
+            0x0e => self.registers.c = self.ld_r8_d8(),
             0x0f => self.rrca(),
 
             // 0x1X
-            0x10 => todo!("unimplemented instruction"),
-            0x11 => todo!("unimplemented instruction"),
+            0x10 => self.stop(),
+            0x11 => self.registers.set_de(self.ld_r16_d16()),
             0x12 => self.ld_a_r8(self.registers.de(), self.registers.a),
             0x13 => self.inc_r16(Register16::DE),
             0x14 => self.registers.d = self.inc_u8(self.registers.d),
             0x15 => self.registers.d = self.dec_u8(self.registers.d),
-            0x16 => todo!("unimplemented instruction"),
+            0x16 => self.registers.d = self.ld_r8_d8(),
             0x17 => self.rla(),
-            0x18 => todo!("unimplemented instruction"),
+            0x18 => todo!("unimplemented instruction"), // JR r8
             0x19 => self.add_hl_r16(self.registers.de()), // ADD HL, DE
-            0x1a => todo!("unimplemented instruction"),
+            0x1a => self.registers.a = self.ld_r8_a16(self.registers.de()),
             0x1b => self.dec_r16(Register16::DE),
             0x1c => self.registers.e = self.inc_u8(self.registers.e), // INC E
             0x1d => self.registers.e = self.dec_u8(self.registers.e), // DEC E
-            0x1e => todo!("unimplemented instruction"),
+            0x1e => self.registers.e = self.ld_r8_d8(),
             0x1f => self.rra(),
 
             // 0x2X
-            0x20 => todo!("unimplemented instruction"),
-            0x21 => todo!("unimplemented instruction"),
+            0x20 => todo!("unimplemented instruction"), // JR NZ, r8
+            0x21 => self.registers.set_hl(self.ld_r16_d16()),
             0x22 => {
                 let addr = self.registers.hl();
                 self.ld_a_r8(addr, self.registers.a);
@@ -265,38 +320,48 @@ impl CPU {
             0x23 => self.inc_r16(Register16::HL),
             0x24 => self.registers.h = self.inc_u8(self.registers.h),
             0x25 => self.registers.h = self.dec_u8(self.registers.h),
-            0x26 => todo!("unimplemented instruction"),
-            0x27 => todo!("unimplemented instruction"),
-            0x28 => todo!("unimplemented instruction"),
+            0x26 => self.registers.h = self.ld_r8_d8(),
+            0x27 => self.daa(),
+            0x28 => todo!("unimplemented instruction"), // JR Z, r8
             0x29 => self.add_hl_r16(self.registers.hl()), // ADD HL, HL
-            0x2a => todo!("unimplemented instruction"),
+            0x2a => {
+                // LA A, (HL+)
+                let addr = self.registers.hl();
+                self.registers.a = self.ld_r8_a16(addr);
+                self.registers.set_hl(addr + 1);
+            }
             0x2b => self.dec_r16(Register16::HL),
             0x2c => self.registers.l = self.inc_u8(self.registers.l), // INC L
             0x2d => self.registers.l = self.dec_u8(self.registers.l), // DEC L
-            0x2e => todo!("unimplemented instruction"),
-            0x2f => todo!("unimplemented instruction"),
+            0x2e => self.registers.l = self.ld_r8_d8(),
+            0x2f => self.cpl(),
 
             // 0x3X
-            0x30 => todo!("unimplemented instruction"),
-            0x31 => todo!("unimplemented instruction"),
+            0x30 => todo!("unimplemented instruction"), // JR NC, r8
+            0x31 => self.registers.sp = self.ld_r16_d16(),
             0x32 => {
                 let addr = self.registers.hl();
                 self.ld_a_r8(addr, self.registers.a);
                 self.registers.set_hl(addr - 1);
             }
             0x33 => self.registers.sp = self.inc_u16(self.registers.sp),
-            0x34 => todo!("unimplemented instruction"), // INC (HL)
-            0x35 => todo!("unimplemented instruction"), // DEC (HL)
-            0x36 => todo!("unimplemented instruction"),
+            0x34 => self.inc_a8(self.registers.hl()), // INC (HL)
+            0x35 => self.dec_a8(self.registers.hl()), // DEC (HL)
+            0x36 => self.bus.write_u8(self.registers.hl(), self.ld_r8_d8()),
             0x37 => self.scf(),
-            0x38 => todo!("unimplemented instruction"),
+            0x38 => todo!("unimplemented instruction"), // JR C, r8
             0x39 => self.add_hl_r16(self.registers.sp), // ADD HL, SP
-            0x3a => todo!("unimplemented instruction"),
+            0x3a => {
+                // LD A, (HL-)
+                let addr = self.registers.hl();
+                self.registers.a = self.ld_r8_a16(addr);
+                self.registers.set_hl(addr - 1);
+            }
             0x3b => self.registers.sp = self.dec_u16(self.registers.sp),
             0x3c => self.registers.a = self.inc_u8(self.registers.a), // INC A
             0x3d => self.registers.a = self.dec_u8(self.registers.a), // DEC A
-            0x3e => self.cpl(),
-            0x3f => self.ccf(), // CCF
+            0x3e => self.registers.a = self.ld_r8_d8(),
+            0x3f => self.ccf(),
 
             // LD B, x
             0x40 => self.registers.b = self.registers.b,
@@ -451,11 +516,14 @@ impl CPU {
             0xbf => self.cp(self.registers.a),
 
             0xc0 => todo!("unimplemented instruction"),
-            0xc1 => todo!("unimplemented instruction"),
+            0xc1 => {
+                let value = self.pop_r16();
+                self.registers.set_bc(value)
+            }
             0xc2 => todo!("unimplemented instruction"),
             0xc3 => todo!("unimplemented instruction"),
             0xc4 => todo!("unimplemented instruction"),
-            0xc5 => todo!("unimplemented instruction"),
+            0xc5 => self.push_r16(self.registers.bc()),
             0xc6 => todo!("unimplemented instruction"),
             0xc7 => todo!("unimplemented instruction"),
             0xc8 => todo!("unimplemented instruction"),
@@ -468,11 +536,14 @@ impl CPU {
             0xcf => todo!("unimplemented instruction"),
 
             0xd0 => todo!("unimplemented instruction"),
-            0xd1 => todo!("unimplemented instruction"),
+            0xd1 => {
+                let value = self.pop_r16();
+                self.registers.set_de(value)
+            }
             0xd2 => todo!("unimplemented instruction"),
             0xd3 => panic!("instruction does not exist"),
             0xd4 => todo!("unimplemented instruction"),
-            0xd5 => todo!("unimplemented instruction"),
+            0xd5 => self.push_r16(self.registers.de()),
             0xd6 => todo!("unimplemented instruction"),
             0xd7 => todo!("unimplemented instruction"),
             0xd8 => todo!("unimplemented instruction"),
@@ -485,11 +556,14 @@ impl CPU {
             0xdf => todo!("unimplemented instruction"),
 
             0xe0 => todo!("unimplemented instruction"),
-            0xe1 => todo!("unimplemented instruction"),
+            0xe1 => {
+                let value = self.pop_r16();
+                self.registers.set_hl(value)
+            }
             0xe2 => todo!("unimplemented instruction"),
             0xe3 => panic!("instruction does not exist"),
             0xe4 => panic!("instruction does not exist"),
-            0xe5 => todo!("unimplemented instruction"),
+            0xe5 => self.push_r16(self.registers.hl()),
             0xe6 => todo!("unimplemented instruction"),
             0xe7 => todo!("unimplemented instruction"),
             0xe8 => todo!("unimplemented instruction"),
@@ -502,11 +576,14 @@ impl CPU {
             0xef => todo!("unimplemented instruction"),
 
             0xf0 => todo!("unimplemented instruction"),
-            0xf1 => todo!("unimplemented instruction"),
+            0xf1 => {
+                let value = self.pop_r16();
+                self.registers.set_af(value)
+            }
             0xf2 => todo!("unimplemented instruction"),
             0xf3 => todo!("unimplemented instruction"),
             0xf4 => panic!("instruction does not exist"),
-            0xf5 => todo!("unimplemented instruction"),
+            0xf5 => self.push_r16(self.registers.af()),
             0xf6 => todo!("unimplemented instruction"),
             0xf7 => todo!("unimplemented instruction"),
             0xf8 => todo!("unimplemented instruction"),
