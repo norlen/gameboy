@@ -15,6 +15,10 @@ impl MemoryBus {
         self.memory[addr as usize]
     }
 
+    pub fn write_u8(&mut self, _addr: u16, _value: u8) {
+        todo!()
+    }
+
     pub fn read_u16(&self, _addr: u16) -> u16 {
         todo!()
     }

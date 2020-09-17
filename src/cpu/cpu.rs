@@ -475,7 +475,7 @@ impl CPU {
         self.registers.f.setc(new_value == 0, Flags::ZERO);
         self.registers.f.clear(Flags::HALF_CARRY);
         self.registers.f.clear(Flags::SUBTRACT);
-        
+
         new_value
     }
 
@@ -513,7 +513,7 @@ impl CPU {
         self.registers.f.setc(new_value == 0, Flags::ZERO);
         self.registers.f.clear(Flags::HALF_CARRY);
         self.registers.f.clear(Flags::SUBTRACT);
-        
+
         new_value
     }
 
@@ -546,7 +546,7 @@ impl CPU {
         let carry = value >> 7 & 0x1;
         self.registers.f.setc(carry == 1, Flags::CARRY);
         let new_value = value << 1;
-        
+
         self.registers.f.setc(new_value == 0, Flags::ZERO);
         self.registers.f.clear(Flags::HALF_CARRY);
         self.registers.f.clear(Flags::SUBTRACT);
@@ -606,89 +606,126 @@ impl CPU {
 
     fn execute_prefixed(&mut self, instruction: u8) -> u16 {
         match instruction {
+            // RLC r8
             0x00 => self.registers.b = self.rlc(self.registers.b),
             0x01 => self.registers.c = self.rlc(self.registers.c),
             0x02 => self.registers.d = self.rlc(self.registers.d),
             0x03 => self.registers.e = self.rlc(self.registers.e),
             0x04 => self.registers.h = self.rlc(self.registers.h),
             0x05 => self.registers.l = self.rlc(self.registers.l),
-            0x06 => todo!("unimplemented prefix instruction"), // RLC (HL)
+            0x06 => {
+                let addr = self.registers.hl();
+                let value = self.rlc(self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // RLC (HL)
             0x07 => self.registers.a = self.rlc(self.registers.d),
 
+            // RRC r8
             0x08 => self.registers.b = self.rrc(self.registers.b),
             0x09 => self.registers.c = self.rrc(self.registers.c),
             0x0a => self.registers.d = self.rrc(self.registers.d),
             0x0b => self.registers.e = self.rrc(self.registers.e),
             0x0c => self.registers.h = self.rrc(self.registers.h),
             0x0d => self.registers.l = self.rrc(self.registers.l),
-            0x0e => todo!("unimplemented prefix instruction"), // RRC (HL)
+            0x0e => {
+                let addr = self.registers.hl();
+                let value = self.rrc(self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // RRC (HL)
             0x0f => self.registers.a = self.rrc(self.registers.a),
 
-            // 0x1x
+            // RL r8
             0x10 => self.registers.b = self.rl(self.registers.b),
             0x11 => self.registers.c = self.rl(self.registers.c),
             0x12 => self.registers.d = self.rl(self.registers.d),
             0x13 => self.registers.e = self.rl(self.registers.e),
             0x14 => self.registers.h = self.rl(self.registers.h),
             0x15 => self.registers.l = self.rl(self.registers.l),
-            0x16 => todo!("unimplemented prefix instruction"), // RL (HL)
+            0x16 => {
+                let addr = self.registers.hl();
+                let value = self.rl(self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // RL (HL)
             0x17 => self.registers.a = self.rl(self.registers.a),
 
+            // RR r8
             0x18 => self.registers.b = self.rr(self.registers.b),
             0x19 => self.registers.c = self.rr(self.registers.c),
             0x1a => self.registers.d = self.rr(self.registers.d),
             0x1b => self.registers.e = self.rr(self.registers.e),
             0x1c => self.registers.h = self.rr(self.registers.h),
             0x1d => self.registers.l = self.rr(self.registers.l),
-            0x1e => todo!("unimplemented prefix instruction"), // RR (HL)
+            0x1e => {
+                let addr = self.registers.hl();
+                let value = self.rr(self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // RR (HL)
             0x1f => self.registers.a = self.rr(self.registers.a),
 
-            // 0x2x
+            // SLA r8
             0x20 => self.registers.b = self.sla(self.registers.b),
             0x21 => self.registers.c = self.sla(self.registers.c),
             0x22 => self.registers.d = self.sla(self.registers.d),
             0x23 => self.registers.e = self.sla(self.registers.e),
             0x24 => self.registers.h = self.sla(self.registers.h),
             0x25 => self.registers.l = self.sla(self.registers.l),
-            0x26 => todo!("unimplemented prefix instruction"), // SLA (HL)
+            0x26 => {
+                let addr = self.registers.hl();
+                let value = self.sla(self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // SLA (HL)
             0x27 => self.registers.a = self.sla(self.registers.a),
 
+            // SRA r8
             0x28 => self.registers.b = self.sra(self.registers.b),
             0x29 => self.registers.c = self.sra(self.registers.c),
             0x2a => self.registers.d = self.sra(self.registers.d),
             0x2b => self.registers.e = self.sra(self.registers.e),
             0x2c => self.registers.h = self.sra(self.registers.h),
             0x2d => self.registers.l = self.sra(self.registers.l),
-            0x2e => todo!("unimplemented prefix instruction"), // SRA (HL)
+            0x2e => {
+                let addr = self.registers.hl();
+                let value = self.sra(self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // SRA (HL)
             0x2f => self.registers.a = self.sra(self.registers.a),
 
-            // 0x3x
+            // SWAP r8
             0x30 => self.registers.b = self.swap(self.registers.b),
             0x31 => self.registers.c = self.swap(self.registers.c),
             0x32 => self.registers.d = self.swap(self.registers.d),
             0x33 => self.registers.e = self.swap(self.registers.e),
             0x34 => self.registers.h = self.swap(self.registers.h),
             0x35 => self.registers.l = self.swap(self.registers.l),
-            0x36 => todo!("unimplemented prefix instruction"), // SWAP (HL)
+            0x36 => {
+                let addr = self.registers.hl();
+                let value = self.swap(self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // SWAP (HL)
             0x37 => self.registers.a = self.swap(self.registers.a),
 
+            // SRL r8
             0x38 => self.registers.b = self.srl(self.registers.b),
             0x39 => self.registers.c = self.srl(self.registers.c),
             0x3a => self.registers.d = self.srl(self.registers.d),
             0x3b => self.registers.e = self.srl(self.registers.e),
             0x3c => self.registers.h = self.srl(self.registers.h),
             0x3d => self.registers.l = self.srl(self.registers.l),
-            0x3e => todo!("unimplemented prefix instruction"), // SRL (HL)
+            0x3e => {
+                let addr = self.registers.hl();
+                let value = self.srl(self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // SRL (HL)
             0x3f => self.registers.a = self.srl(self.registers.a),
 
-            // 0x4x
+            // BIT bit, r8
             0x40 => self.bit(0, self.registers.b),
             0x41 => self.bit(0, self.registers.c),
             0x42 => self.bit(0, self.registers.d),
             0x43 => self.bit(0, self.registers.e),
             0x44 => self.bit(0, self.registers.h),
             0x45 => self.bit(0, self.registers.l),
-            0x46 => todo!("unimplemented prefix instruction"),
+            0x46 => self.bit(0, self.bus.read_u8(self.registers.hl())),
             0x47 => self.bit(0, self.registers.a),
 
             0x48 => self.bit(1, self.registers.b),
@@ -697,17 +734,16 @@ impl CPU {
             0x4b => self.bit(1, self.registers.e),
             0x4c => self.bit(1, self.registers.h),
             0x4d => self.bit(1, self.registers.l),
-            0x4e => todo!("unimplemented prefix instruction"),
+            0x4e => self.bit(1, self.bus.read_u8(self.registers.hl())),
             0x4f => self.bit(1, self.registers.a),
 
-            // 0x5x
             0x50 => self.bit(2, self.registers.b),
             0x51 => self.bit(2, self.registers.c),
             0x52 => self.bit(2, self.registers.d),
             0x53 => self.bit(2, self.registers.e),
             0x54 => self.bit(2, self.registers.h),
             0x55 => self.bit(2, self.registers.l),
-            0x56 => todo!("unimplemented prefix instruction"),
+            0x56 => self.bit(2, self.bus.read_u8(self.registers.hl())),
             0x57 => self.bit(2, self.registers.a),
 
             0x58 => self.bit(3, self.registers.b),
@@ -716,17 +752,16 @@ impl CPU {
             0x5b => self.bit(3, self.registers.e),
             0x5c => self.bit(3, self.registers.h),
             0x5d => self.bit(3, self.registers.l),
-            0x5e => todo!("unimplemented prefix instruction"),
+            0x5e => self.bit(3, self.bus.read_u8(self.registers.hl())),
             0x5f => self.bit(3, self.registers.a),
 
-            // 0x6x
             0x60 => self.bit(4, self.registers.b),
             0x61 => self.bit(4, self.registers.c),
             0x62 => self.bit(4, self.registers.d),
             0x63 => self.bit(4, self.registers.e),
             0x64 => self.bit(4, self.registers.h),
             0x65 => self.bit(4, self.registers.l),
-            0x66 => todo!("unimplemented prefix instruction"),
+            0x66 => self.bit(4, self.bus.read_u8(self.registers.hl())),
             0x67 => self.bit(4, self.registers.a),
 
             0x68 => self.bit(5, self.registers.b),
@@ -735,18 +770,16 @@ impl CPU {
             0x6b => self.bit(5, self.registers.e),
             0x6c => self.bit(5, self.registers.h),
             0x6d => self.bit(5, self.registers.l),
-            0x6e => todo!("unimplemented prefix instruction"),
+            0x6e => self.bit(5, self.bus.read_u8(self.registers.hl())),
             0x6f => self.bit(5, self.registers.a),
 
-
-            // 0x7x
             0x70 => self.bit(6, self.registers.b),
             0x71 => self.bit(6, self.registers.c),
             0x72 => self.bit(6, self.registers.d),
             0x73 => self.bit(6, self.registers.e),
             0x74 => self.bit(6, self.registers.h),
             0x75 => self.bit(6, self.registers.l),
-            0x76 => todo!("unimplemented prefix instruction"),
+            0x76 => self.bit(6, self.bus.read_u8(self.registers.hl())),
             0x77 => self.bit(6, self.registers.a),
 
             0x78 => self.bit(7, self.registers.b),
@@ -755,145 +788,218 @@ impl CPU {
             0x7b => self.bit(7, self.registers.e),
             0x7c => self.bit(7, self.registers.h),
             0x7d => self.bit(7, self.registers.l),
-            0x7e => todo!("unimplemented prefix instruction"),
+            0x7e => self.bit(7, self.bus.read_u8(self.registers.hl())),
             0x7f => self.bit(7, self.registers.a),
 
-            // 0x8x
-            0x80 => todo!("unimplemented prefix instruction"),
-            0x81 => todo!("unimplemented prefix instruction"),
-            0x82 => todo!("unimplemented prefix instruction"),
-            0x83 => todo!("unimplemented prefix instruction"),
-            0x84 => todo!("unimplemented prefix instruction"),
-            0x85 => todo!("unimplemented prefix instruction"),
-            0x86 => todo!("unimplemented prefix instruction"),
-            0x87 => todo!("unimplemented prefix instruction"),
-            0x88 => todo!("unimplemented prefix instruction"),
-            0x89 => todo!("unimplemented prefix instruction"),
-            0x8a => todo!("unimplemented prefix instruction"),
-            0x8b => todo!("unimplemented prefix instruction"),
-            0x8c => todo!("unimplemented prefix instruction"),
-            0x8d => todo!("unimplemented prefix instruction"),
-            0x8e => todo!("unimplemented prefix instruction"),
-            0x8f => todo!("unimplemented prefix instruction"),
+            // RES bit, r8
+            0x80 => self.registers.b = self.res(0, self.registers.b),
+            0x81 => self.registers.c = self.res(0, self.registers.c),
+            0x82 => self.registers.d = self.res(0, self.registers.d),
+            0x83 => self.registers.e = self.res(0, self.registers.e),
+            0x84 => self.registers.h = self.res(0, self.registers.h),
+            0x85 => self.registers.l = self.res(0, self.registers.l),
+            0x86 => {
+                let addr = self.registers.hl();
+                let value = self.res(0, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // RES x, (HL)
+            0x87 => self.registers.a = self.res(0, self.registers.a),
 
-            0x90 => todo!("unimplemented prefix instruction"),
-            0x91 => todo!("unimplemented prefix instruction"),
-            0x92 => todo!("unimplemented prefix instruction"),
-            0x93 => todo!("unimplemented prefix instruction"),
-            0x94 => todo!("unimplemented prefix instruction"),
-            0x95 => todo!("unimplemented prefix instruction"),
-            0x96 => todo!("unimplemented prefix instruction"),
-            0x97 => todo!("unimplemented prefix instruction"),
-            0x98 => todo!("unimplemented prefix instruction"),
-            0x99 => todo!("unimplemented prefix instruction"),
-            0x9a => todo!("unimplemented prefix instruction"),
-            0x9b => todo!("unimplemented prefix instruction"),
-            0x9c => todo!("unimplemented prefix instruction"),
-            0x9d => todo!("unimplemented prefix instruction"),
-            0x9e => todo!("unimplemented prefix instruction"),
-            0x9f => todo!("unimplemented prefix instruction"),
+            0x88 => self.registers.b = self.res(1, self.registers.b),
+            0x89 => self.registers.c = self.res(1, self.registers.c),
+            0x8a => self.registers.d = self.res(1, self.registers.d),
+            0x8b => self.registers.e = self.res(1, self.registers.e),
+            0x8c => self.registers.h = self.res(1, self.registers.h),
+            0x8d => self.registers.l = self.res(1, self.registers.l),
+            0x8e => {
+                let addr = self.registers.hl();
+                let value = self.res(1, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // RES x, (HL)
+            0x8f => self.registers.a = self.res(1, self.registers.a),
 
-            0xa0 => todo!("unimplemented prefix instruction"),
-            0xa1 => todo!("unimplemented prefix instruction"),
-            0xa2 => todo!("unimplemented prefix instruction"),
-            0xa3 => todo!("unimplemented prefix instruction"),
-            0xa4 => todo!("unimplemented prefix instruction"),
-            0xa5 => todo!("unimplemented prefix instruction"),
-            0xa6 => todo!("unimplemented prefix instruction"),
-            0xa7 => todo!("unimplemented prefix instruction"),
-            0xa8 => todo!("unimplemented prefix instruction"),
-            0xa9 => todo!("unimplemented prefix instruction"),
-            0xaa => todo!("unimplemented prefix instruction"),
-            0xab => todo!("unimplemented prefix instruction"),
-            0xac => todo!("unimplemented prefix instruction"),
-            0xad => todo!("unimplemented prefix instruction"),
-            0xae => todo!("unimplemented prefix instruction"),
-            0xaf => todo!("unimplemented prefix instruction"),
+            0x90 => self.registers.b = self.res(2, self.registers.b),
+            0x91 => self.registers.c = self.res(2, self.registers.c),
+            0x92 => self.registers.d = self.res(2, self.registers.d),
+            0x93 => self.registers.e = self.res(2, self.registers.e),
+            0x94 => self.registers.h = self.res(2, self.registers.h),
+            0x95 => self.registers.l = self.res(2, self.registers.l),
+            0x96 => {
+                let addr = self.registers.hl();
+                let value = self.res(2, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // RES x, (HL)
+            0x97 => self.registers.a = self.res(2, self.registers.a),
 
-            0xb0 => todo!("unimplemented prefix instruction"),
-            0xb1 => todo!("unimplemented prefix instruction"),
-            0xb2 => todo!("unimplemented prefix instruction"),
-            0xb3 => todo!("unimplemented prefix instruction"),
-            0xb4 => todo!("unimplemented prefix instruction"),
-            0xb5 => todo!("unimplemented prefix instruction"),
-            0xb6 => todo!("unimplemented prefix instruction"),
-            0xb7 => todo!("unimplemented prefix instruction"),
-            0xb8 => todo!("unimplemented prefix instruction"),
-            0xb9 => todo!("unimplemented prefix instruction"),
-            0xba => todo!("unimplemented prefix instruction"),
-            0xbb => todo!("unimplemented prefix instruction"),
-            0xbc => todo!("unimplemented prefix instruction"),
-            0xbd => todo!("unimplemented prefix instruction"),
-            0xbe => todo!("unimplemented prefix instruction"),
-            0xbf => todo!("unimplemented prefix instruction"),
+            0x98 => self.registers.b = self.res(3, self.registers.b),
+            0x99 => self.registers.c = self.res(3, self.registers.c),
+            0x9a => self.registers.d = self.res(3, self.registers.d),
+            0x9b => self.registers.e = self.res(3, self.registers.e),
+            0x9c => self.registers.h = self.res(3, self.registers.h),
+            0x9d => self.registers.l = self.res(3, self.registers.l),
+            0x9e => {
+                let addr = self.registers.hl();
+                let value = self.res(3, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // RES x, (HL)
+            0x9f => self.registers.a = self.res(3, self.registers.a),
 
-            0xc0 => todo!("unimplemented prefix instruction"),
-            0xc1 => todo!("unimplemented prefix instruction"),
-            0xc2 => todo!("unimplemented prefix instruction"),
-            0xc3 => todo!("unimplemented prefix instruction"),
-            0xc4 => todo!("unimplemented prefix instruction"),
-            0xc5 => todo!("unimplemented prefix instruction"),
-            0xc6 => todo!("unimplemented prefix instruction"),
-            0xc7 => todo!("unimplemented prefix instruction"),
-            0xc8 => todo!("unimplemented prefix instruction"),
-            0xc9 => todo!("unimplemented prefix instruction"),
-            0xca => todo!("unimplemented prefix instruction"),
-            0xcb => todo!("unimplemented prefix instruction"),
-            0xcc => todo!("unimplemented prefix instruction"),
-            0xcd => todo!("unimplemented prefix instruction"),
-            0xce => todo!("unimplemented prefix instruction"),
-            0xcf => todo!("unimplemented prefix instruction"),
+            0xa0 => self.registers.b = self.res(4, self.registers.b),
+            0xa1 => self.registers.c = self.res(4, self.registers.c),
+            0xa2 => self.registers.d = self.res(4, self.registers.d),
+            0xa3 => self.registers.e = self.res(4, self.registers.e),
+            0xa4 => self.registers.h = self.res(4, self.registers.h),
+            0xa5 => self.registers.l = self.res(4, self.registers.l),
+            0xa6 => {
+                let addr = self.registers.hl();
+                let value = self.res(4, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // RES x, (HL)
+            0xa7 => self.registers.a = self.res(4, self.registers.a),
 
-            0xd0 => todo!("unimplemented prefix instruction"),
-            0xd1 => todo!("unimplemented prefix instruction"),
-            0xd2 => todo!("unimplemented prefix instruction"),
-            0xd3 => todo!("unimplemented prefix instruction"),
-            0xd4 => todo!("unimplemented prefix instruction"),
-            0xd5 => todo!("unimplemented prefix instruction"),
-            0xd6 => todo!("unimplemented prefix instruction"),
-            0xd7 => todo!("unimplemented prefix instruction"),
-            0xd8 => todo!("unimplemented prefix instruction"),
-            0xd9 => todo!("unimplemented prefix instruction"),
-            0xda => todo!("unimplemented prefix instruction"),
-            0xdb => todo!("unimplemented prefix instruction"),
-            0xdc => todo!("unimplemented prefix instruction"),
-            0xdd => todo!("unimplemented prefix instruction"),
-            0xde => todo!("unimplemented prefix instruction"),
-            0xdf => todo!("unimplemented prefix instruction"),
+            0xa8 => self.registers.b = self.res(5, self.registers.b),
+            0xa9 => self.registers.c = self.res(5, self.registers.c),
+            0xaa => self.registers.d = self.res(5, self.registers.d),
+            0xab => self.registers.e = self.res(5, self.registers.e),
+            0xac => self.registers.h = self.res(5, self.registers.h),
+            0xad => self.registers.l = self.res(5, self.registers.l),
+            0xae => {
+                let addr = self.registers.hl();
+                let value = self.res(5, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // RES x, (HL)
+            0xaf => self.registers.a = self.res(5, self.registers.a),
 
-            0xe0 => todo!("unimplemented prefix instruction"),
-            0xe1 => todo!("unimplemented prefix instruction"),
-            0xe2 => todo!("unimplemented prefix instruction"),
-            0xe3 => todo!("unimplemented prefix instruction"),
-            0xe4 => todo!("unimplemented prefix instruction"),
-            0xe5 => todo!("unimplemented prefix instruction"),
-            0xe6 => todo!("unimplemented prefix instruction"),
-            0xe7 => todo!("unimplemented prefix instruction"),
-            0xe8 => todo!("unimplemented prefix instruction"),
-            0xe9 => todo!("unimplemented prefix instruction"),
-            0xea => todo!("unimplemented prefix instruction"),
-            0xeb => todo!("unimplemented prefix instruction"),
-            0xec => todo!("unimplemented prefix instruction"),
-            0xed => todo!("unimplemented prefix instruction"),
-            0xee => todo!("unimplemented prefix instruction"),
-            0xef => todo!("unimplemented prefix instruction"),
+            0xb0 => self.registers.b = self.res(6, self.registers.b),
+            0xb1 => self.registers.c = self.res(6, self.registers.c),
+            0xb2 => self.registers.d = self.res(6, self.registers.d),
+            0xb3 => self.registers.e = self.res(6, self.registers.e),
+            0xb4 => self.registers.h = self.res(6, self.registers.h),
+            0xb5 => self.registers.l = self.res(6, self.registers.l),
+            0xb6 => {
+                let addr = self.registers.hl();
+                let value = self.res(6, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // RES x, (HL)
+            0xb7 => self.registers.a = self.res(6, self.registers.a),
 
-            0xf0 => todo!("unimplemented prefix instruction"),
-            0xf1 => todo!("unimplemented prefix instruction"),
-            0xf2 => todo!("unimplemented prefix instruction"),
-            0xf3 => todo!("unimplemented prefix instruction"),
-            0xf4 => todo!("unimplemented prefix instruction"),
-            0xf5 => todo!("unimplemented prefix instruction"),
-            0xf6 => todo!("unimplemented prefix instruction"),
-            0xf7 => todo!("unimplemented prefix instruction"),
-            0xf8 => todo!("unimplemented prefix instruction"),
-            0xf9 => todo!("unimplemented prefix instruction"),
-            0xfa => todo!("unimplemented prefix instruction"),
-            0xfb => todo!("unimplemented prefix instruction"),
-            0xfc => todo!("unimplemented prefix instruction"),
-            0xfd => todo!("unimplemented prefix instruction"),
-            0xfe => todo!("unimplemented prefix instruction"),
-            0xff => todo!("unimplemented prefix instruction"),
+            0xb8 => self.registers.b = self.res(7, self.registers.b),
+            0xb9 => self.registers.c = self.res(7, self.registers.c),
+            0xba => self.registers.d = self.res(7, self.registers.d),
+            0xbb => self.registers.e = self.res(7, self.registers.e),
+            0xbc => self.registers.h = self.res(7, self.registers.h),
+            0xbd => self.registers.l = self.res(7, self.registers.l),
+            0xbe => {
+                let addr = self.registers.hl();
+                let value = self.res(7, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // RES x, (HL)
+            0xbf => self.registers.a = self.res(7, self.registers.a),
+
+            // SET bit, r8
+            0xc0 => self.registers.b = self.set(0, self.registers.b),
+            0xc1 => self.registers.c = self.set(0, self.registers.c),
+            0xc2 => self.registers.d = self.set(0, self.registers.d),
+            0xc3 => self.registers.e = self.set(0, self.registers.e),
+            0xc4 => self.registers.h = self.set(0, self.registers.h),
+            0xc5 => self.registers.l = self.set(0, self.registers.l),
+            0xc6 => {
+                let addr = self.registers.hl();
+                let value = self.set(0, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // SET x, (HL)
+            0xc7 => self.registers.a = self.set(0, self.registers.a),
+
+            0xc8 => self.registers.b = self.set(1, self.registers.b),
+            0xc9 => self.registers.c = self.set(1, self.registers.c),
+            0xca => self.registers.d = self.set(1, self.registers.d),
+            0xcb => self.registers.e = self.set(1, self.registers.e),
+            0xcc => self.registers.h = self.set(1, self.registers.h),
+            0xcd => self.registers.l = self.set(1, self.registers.l),
+            0xce => {
+                let addr = self.registers.hl();
+                let value = self.set(1, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // SET x, (HL)
+            0xcf => self.registers.a = self.set(1, self.registers.a),
+
+            0xd0 => self.registers.b = self.set(2, self.registers.b),
+            0xd1 => self.registers.c = self.set(2, self.registers.c),
+            0xd2 => self.registers.d = self.set(2, self.registers.d),
+            0xd3 => self.registers.e = self.set(2, self.registers.e),
+            0xd4 => self.registers.h = self.set(2, self.registers.h),
+            0xd5 => self.registers.l = self.set(2, self.registers.l),
+            0xd6 => {
+                let addr = self.registers.hl();
+                let value = self.set(2, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // SET x, (HL)
+            0xd7 => self.registers.a = self.set(2, self.registers.a),
+
+            0xd8 => self.registers.b = self.set(3, self.registers.b),
+            0xd9 => self.registers.c = self.set(3, self.registers.c),
+            0xda => self.registers.d = self.set(3, self.registers.d),
+            0xdb => self.registers.e = self.set(3, self.registers.e),
+            0xdc => self.registers.h = self.set(3, self.registers.h),
+            0xdd => self.registers.l = self.set(3, self.registers.l),
+            0xde => {
+                let addr = self.registers.hl();
+                let value = self.set(3, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // SET x, (HL)
+            0xdf => self.registers.a = self.set(3, self.registers.a),
+
+            0xe0 => self.registers.b = self.set(4, self.registers.b),
+            0xe1 => self.registers.c = self.set(4, self.registers.c),
+            0xe2 => self.registers.d = self.set(4, self.registers.d),
+            0xe3 => self.registers.e = self.set(4, self.registers.e),
+            0xe4 => self.registers.h = self.set(4, self.registers.h),
+            0xe5 => self.registers.l = self.set(4, self.registers.l),
+            0xe6 => {
+                let addr = self.registers.hl();
+                let value = self.set(4, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // SET x, (HL)
+            0xe7 => self.registers.a = self.set(4, self.registers.a),
+
+            0xe8 => self.registers.b = self.set(5, self.registers.b),
+            0xe9 => self.registers.c = self.set(5, self.registers.c),
+            0xea => self.registers.d = self.set(5, self.registers.d),
+            0xeb => self.registers.e = self.set(5, self.registers.e),
+            0xec => self.registers.h = self.set(5, self.registers.h),
+            0xed => self.registers.l = self.set(5, self.registers.l),
+            0xee => {
+                let addr = self.registers.hl();
+                let value = self.set(5, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // SET x, (HL)
+            0xef => self.registers.a = self.set(5, self.registers.a),
+
+            0xf0 => self.registers.b = self.set(6, self.registers.b),
+            0xf1 => self.registers.c = self.set(6, self.registers.c),
+            0xf2 => self.registers.d = self.set(6, self.registers.d),
+            0xf3 => self.registers.e = self.set(6, self.registers.e),
+            0xf4 => self.registers.h = self.set(6, self.registers.h),
+            0xf5 => self.registers.l = self.set(6, self.registers.l),
+            0xf6 => {
+                let addr = self.registers.hl();
+                let value = self.set(6, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // SET x, (HL)
+            0xf7 => self.registers.a = self.set(6, self.registers.a),
+
+            0xf8 => self.registers.b = self.set(7, self.registers.b),
+            0xf9 => self.registers.c = self.set(7, self.registers.c),
+            0xfa => self.registers.d = self.set(7, self.registers.d),
+            0xfb => self.registers.e = self.set(7, self.registers.e),
+            0xfc => self.registers.h = self.set(7, self.registers.h),
+            0xfd => self.registers.l = self.set(7, self.registers.l),
+            0xfe => {
+                let addr = self.registers.hl();
+                let value = self.set(7, self.bus.read_u8(addr));
+                self.bus.write_u8(addr, value);
+            } // SET x, (HL)
+            0xff => self.registers.a = self.set(7, self.registers.a),
         }
 
         todo!()
