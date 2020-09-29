@@ -58,6 +58,14 @@ impl CPU {
         todo!()
     }
 
+    fn di(&self) {
+        todo!()
+    }
+
+    fn ei(&self) {
+        todo!()
+    }
+
     // -------------------------------------------------------------------------
     // Jump instructions.
     // -------------------------------------------------------------------------
@@ -195,6 +203,50 @@ impl CPU {
         let value = self.bus.read_u16(self.reg.sp);
         self.reg.sp += 2;
         value
+    }
+
+    /// Adds the signed value in the instruction to `sp`.
+    /// - Cycles: 16
+    /// - Bytes: 2
+    /// - Flags:
+    ///     - Z: 0
+    ///     - N: 0
+    ///     - H: Set if overflow from bit 3
+    ///     - C: Set if overflow from bit 7
+    fn add_sp_d8(&mut self) {
+        let value = self.bus.read_u8(self.pc + 1).into();
+
+        let hc = hc_overflow_u16(self.reg.sp, value);
+        let carry = check_carry(self.reg.sp, value);
+        self.reg.f.clear(Flags::ZERO);
+        self.reg.f.clear(Flags::SUBTRACT);
+        self.reg.f.setc(hc, Flags::HALF_CARRY);
+        self.reg.f.setc(carry, Flags::CARRY);
+
+        let new_sp = self.reg.sp.wrapping_add(value);
+        self.reg.sp = new_sp;
+    }
+
+    /// Adds the signed value e8 to sp and store the result in `HL`.
+    /// - Cycles: 12
+    /// - Bytes: 2
+    /// - Flags:
+    ///     - Z: 0
+    ///     - N: 0
+    ///     - H: Set if overflow from bit 3
+    ///     - C: Set if overflow from bit 7
+    fn ld_hl_sp_e8(&mut self) {
+        let value = self.bus.read_u8(self.pc + 1).into();
+
+        let hc = hc_overflow_u16(self.reg.sp, value);
+        let carry = check_carry(self.reg.sp, value);
+        self.reg.f.clear(Flags::ZERO);
+        self.reg.f.clear(Flags::SUBTRACT);
+        self.reg.f.setc(hc, Flags::HALF_CARRY);
+        self.reg.f.setc(carry, Flags::CARRY);
+
+        let new_value = self.reg.sp.wrapping_add(value);
+        self.reg.set_hl(new_value);
     }
 
     // -------------------------------------------------------------------------
@@ -395,6 +447,10 @@ impl CPU {
         self.reg.set_hl(new_value);
     }
 
+    // -------------------------------------------------------------------------
+    // Load instructions.
+    // -------------------------------------------------------------------------
+
     // LD (r16), r8
     fn ld_a8_r8(&mut self, addr: u16, value: u8) {
         self.bus.write_u8(addr, value)
@@ -460,6 +516,50 @@ impl CPU {
 
     fn ld_a8(&mut self, addr: u16) -> u8 {
         self.bus.read_u8(addr)
+    }
+
+    /// Load value into register `A` from byte at $FF00 + a8.
+    /// - Cycles: 12
+    /// - Bytes: 2
+    /// - Flags: None affected
+    fn ldh_a_a8(&mut self) {
+        let base: u16 = 0xff00;
+        let offset: u16 = self.bus.read_u8(self.pc + 1).into();
+
+        self.reg.a = self.bus.read_u8(base + offset);
+    }
+
+    /// Store value in `A` to the byte at $FF00 + a8.
+    /// - Cycles: 12
+    /// - Bytes: 2
+    /// - Flags: None affected
+    fn ldh_a8_a(&mut self) {
+        let base: u16 = 0xff00;
+        let offset: u16 = self.bus.read_u8(self.pc + 1).into();
+
+        self.bus.write_u8(base + offset, self.reg.a);
+    }
+
+    /// Load value into register `A` from byte at address $FF00 + C.
+    /// - Cycles: 8
+    /// - Bytes: 1
+    /// - Flags: None affected
+    fn ldh_a_c(&mut self) {
+        let base: u16 = 0xff00;
+        let offset: u16 = self.reg.c.into();
+
+        self.reg.a = self.bus.read_u8(base + offset);
+    }
+
+    /// Store value in register `A` into byte at address $FF00 + C.
+    /// - Cycles: 8
+    /// - Bytes: 1
+    /// - FLags: None affected
+    fn ldh_c_a(&mut self) {
+        let base: u16 = 0xff00;
+        let offset: u16 = self.reg.c.into();
+
+        self.bus.write_u8(base + offset, self.reg.a);
     }
 
     fn execute(&mut self, instruction: u8) -> u16 {
@@ -690,7 +790,7 @@ impl CPU {
             0xc3 => op!(3, 16, self.jp()),
             0xc4 => op!(3, 0, self.call_cc(!self.reg.f.zero_is_set())),
             0xc5 => op!(1, 16, self.push(self.reg.bc())),
-            0xc6 => todo!("unimplemented instruction"),
+            0xc6 => op!(2, 8, self.add_a8(self.pc + 1)),
             0xc7 => todo!("unimplemented instruction"),
             0xc8 => op!(1, 0, self.ret_cc(self.reg.f.zero_is_set())),
             0xc9 => op!(1, 16, self.ret()),
@@ -698,7 +798,7 @@ impl CPU {
             0xcb => panic!("prefixed instruction, should not be handled here"),
             0xcc => op!(3, 0, self.call_cc(self.reg.f.zero_is_set())),
             0xcd => op!(3, 24, self.call()),
-            0xce => todo!("unimplemented instruction"),
+            0xce => op!(2, 8, self.adc_a8(self.pc + 1)),
             0xcf => todo!("unimplemented instruction"),
 
             0xd0 => op!(1, 0, self.ret_cc(!self.reg.f.carry_is_set())),
@@ -707,7 +807,7 @@ impl CPU {
             0xd3 => panic!("instruction does not exist"),
             0xd4 => op!(3, 0, self.call_cc(!self.reg.f.carry_is_set())),
             0xd5 => op!(1, 16, self.push(self.reg.de())),
-            0xd6 => todo!("unimplemented instruction"),
+            0xd6 => op!(2, 8, self.sub_a8(self.pc + 1)),
             0xd7 => todo!("unimplemented instruction"),
             0xd8 => op!(1, 0, self.ret_cc(self.reg.f.carry_is_set())),
             0xd9 => op!(1, 16, self.reti()),
@@ -715,41 +815,41 @@ impl CPU {
             0xdb => panic!("instruction does not exist"),
             0xdc => op!(3, 0, self.call_cc(self.reg.f.carry_is_set())),
             0xdd => panic!("instruction does not exist"),
-            0xde => todo!("unimplemented instruction"),
+            0xde => op!(2, 8, self.sbc_a8(self.pc + 1)),
             0xdf => todo!("unimplemented instruction"),
 
-            0xe0 => todo!("unimplemented instruction"),
+            0xe0 => op!(2, 12, self.ldh_a8_a()),
             0xe1 => op!(1, 12, self.pop(); |v| self.reg.set_hl(v)),
-            0xe2 => todo!("unimplemented instruction"),
+            0xe2 => op!(1, 8, self.ldh_c_a()),
             0xe3 => panic!("instruction does not exist"),
             0xe4 => panic!("instruction does not exist"),
             0xe5 => op!(1, 16, self.push(self.reg.hl())),
-            0xe6 => todo!("unimplemented instruction"),
+            0xe6 => op!(2, 8, self.and_a8(self.pc + 1)),
             0xe7 => todo!("unimplemented instruction"),
-            0xe8 => todo!("unimplemented instruction"),
+            0xe8 => op!(2, 16, self.add_sp_d8()),
             0xe9 => op!(1, 4, self.jp_hl()),
-            0xea => todo!("unimplemented instruction"),
+            0xea => op!(3, 16, self.ld_a8_r8(self.pc + 1, self.reg.a)),
             0xeb => panic!("instruction does not exist"),
             0xec => panic!("instruction does not exist"),
             0xed => panic!("instruction does not exist"),
-            0xee => todo!("unimplemented instruction"),
+            0xee => op!(2, 8, self.xor_a8(self.pc + 1)),
             0xef => todo!("unimplemented instruction"),
 
-            0xf0 => todo!("unimplemented instruction"),
+            0xf0 => op!(2, 12, self.ldh_a_a8()),
             0xf1 => op!(1, 12, self.pop(); |v| self.reg.set_af(v)),
-            0xf2 => todo!("unimplemented instruction"),
-            0xf3 => todo!("unimplemented instruction"),
+            0xf2 => op!(1, 8, self.ldh_a_c()),
+            0xf3 => op!(1, 4, self.di()),
             0xf4 => panic!("instruction does not exist"),
             0xf5 => op!(1, 16, self.push(self.reg.af())),
-            0xf6 => todo!("unimplemented instruction"),
+            0xf6 => op!(2, 8, self.or_a8(self.pc + 1)),
             0xf7 => todo!("unimplemented instruction"),
-            0xf8 => todo!("unimplemented instruction"),
-            0xf9 => todo!("unimplemented instruction"),
-            0xfa => todo!("unimplemented instruction"),
-            0xfb => todo!("unimplemented instruction"),
+            0xf8 => op!(2, 12, self.ld_hl_sp_e8()),
+            0xf9 => op!(1, 8, self.reg.sp = self.reg.hl()),
+            0xfa => op!(3, 16, self.ld_r8_a8(self.pc + 1) => self.reg.a),
+            0xfb => op!(1, 4, self.ei()),
             0xfc => panic!("instruction does not exist"),
             0xfd => panic!("instruction does not exist"),
-            0xfe => todo!("unimplemented instruction"),
+            0xfe => op!(2, 8, self.cp_a8(self.pc + 1)),
             0xff => todo!("unimplemented instruction"),
         };
 
@@ -1259,6 +1359,7 @@ impl CPU {
     }
 }
 
+// TODO: CHECK THESE.
 fn hc_overflow(old: u8, value: u8) -> bool {
     (old & 0xf) + (value & 0xf) > 0xf
 }
@@ -1270,6 +1371,10 @@ fn hc_borrow(old: u8, value: u8) -> bool {
 fn hc_overflow_u16(old: u16, value: u16) -> bool {
     let bits = 0x0fff;
     (old & bits) + (value & bits) > bits
+}
+
+fn check_carry(old: u16, value: u16) -> bool {
+    (old & 0xff) + (value & 0xff) > 0xff
 }
 
 #[cfg(test)]
