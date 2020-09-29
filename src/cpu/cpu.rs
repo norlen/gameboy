@@ -66,15 +66,134 @@ impl CPU {
 
     // Jump instructions.
 
+    /// Calls the address. Pushes the next address to the stack, then it executes
+    /// an implicit jump.
+    /// - Cycles: 24
+    /// - Bytes: 12
+    /// - Flags: None affected
+    fn call(&mut self) {
+        let address = self.bus.read_u16(self.pc + 1);
+        let next_address = self.pc + 3;
+        self.push(next_address);
+
+        self.pc = address;
+    }
+
+    /// Conditional jump, executes a call if the condition is met. Note that
+    /// this function has to add the cycles itself, so do not call this from
+    /// other functions.
+    /// - Cycles: 24 taken / 12 untaken
+    /// - Bytes: 3
+    /// - Flags: None affected
+    fn call_cc(&mut self, condition: bool) {
+        if condition {
+            self.call();
+            self.cycles += 24;
+        } else {
+            self.cycles += 12;
+        }
+    }
+
+    /// Jumps to the address in `HL`.
+    /// - Cycles: 4
+    /// - Bytes: 1
+    /// - Flags: None affected
+    fn jp_hl(&mut self) {
+        let address = self.registers.hl();
+        self.pc = address;
+    }
+
+    /// Jumps to the address in the instructions.
+    /// - Cycles: 16
+    /// - Bytes: 3
+    /// - Flags: None affected
+    fn jp(&mut self) {
+        let offset = self.bus.read_u16(self.pc + 1);
+        let next_address = self.pc + 2;
+        self.pc = next_address + offset;
+    }
+
+    /// Jumps to the address in the instruction if the condition is met.
+    /// - Cycles: 16 taken / 12 untaken
+    /// - Bytes: 3
+    /// - Flags: None affected
+    fn jp_cc(&mut self, condition: bool) {
+        if condition {
+            self.jp();
+            self.cycles += 16;
+        } else {
+            self.cycles += 12;
+        }
+    }
+
+    /// Relative jump. Adds the immediate value to the next instruction address
+    /// and jumps there.
+    /// - Cycles: 12
+    /// - Bytes: 2
+    /// - Flags: None affected
+    fn jr(&mut self) {
+        let offset = self.bus.read_u8(self.pc + 1);
+        self.pc += offset as u16;
+    }
+
+    /// Conditional relative jump. If the condition is met it performs a `jump`
+    /// otherwise it does nothing. Note that calling this adds cycles, so do not
+    /// call this from other functions.
+    /// - Cycles: 12 taken / 8 untaken
+    /// - Bytes: 2
+    /// - Flags: None affected
+    fn jr_cc(&mut self, condition: bool) {
+        if condition {
+            self.jr();
+            self.cycles += 12;
+        } else {
+            self.cycles += 8;
+        }
+    }
+
+    /// Returns from subroutine. Pops the return address from the stack and
+    /// jumps there.
+    /// - Cycles: 4
+    /// - Bytes: 1
+    /// - Flags: None affected
+    fn ret(&mut self) {
+        let address = self.pop();
+        self.pc = address;
+    }
+
+    /// If the condition is met it perform a `ret` otherwise it does nothing.
+    /// Note that this function adds cycles so do not call this from other
+    /// functions.
+    /// - Cycles: 5 taken / 2 untaken
+    /// - Bytes: 1
+    /// - Flags: None affected
+    fn ret_cc(&mut self, condition: bool) {
+        if condition {
+            self.ret();
+            self.cycles += 5;
+        } else {
+            self.cycles += 2;
+        }
+    }
+
+    /// Returns from subroutine and enables interrupts.
+    /// - Cycles: 4
+    /// - Bytes: 1
+    /// - Flags: None affected
+    fn reti(&mut self) {
+        // TODO: enable interrupts.
+        self.ret();
+    }
+
     // Stack instructions.
 
     // Pushes a 16 big register to the stack.
-    fn push_r16(&mut self, value: u16) {
+    fn push(&mut self, value: u16) {
         self.registers.sp -= 2;
         self.bus.write_u16(self.registers.sp, value);
     }
 
-    fn pop_r16(&mut self) -> u16 {
+    fn pop(&mut self) -> u16 {
         let value = self.bus.read_u16(self.registers.sp);
         self.registers.sp += 2;
         value
@@ -295,7 +414,7 @@ impl CPU {
     fn ld_r8_d8(&self) -> u8 {
         self.bus.read_u8(self.pc + 1)
     }
-    
+
     fn ld_a8_d8(&mut self, addr: u16) {
         let value = self.bus.read_u8(self.pc + 1);
         self.bus.write_u8(addr, value);
@@ -305,13 +424,13 @@ impl CPU {
     fn ld_r8_a8(&self, addr: u16) -> u8 {
         self.bus.read_u8(addr)
     }
-    
+
     fn ld_r8_a8_hlplus(&mut self) -> u8 {
         let addr = self.registers.hl();
         self.registers.set_hl(addr + 1);
         self.ld_r8_a8(addr)
     }
-    
+
     fn ld_r8_a8_hlminus(&mut self) -> u8 {
         let addr = self.registers.hl();
         self.registers.set_hl(addr - 1);
@@ -370,7 +489,7 @@ impl CPU {
             0x15 => op!(1, 4, self.dec_u8(self.registers.d) => self.registers.d),
             0x16 => op!(2, 8, self.ld_r8_d8() => self.registers.d),
             0x17 => op!(1, 4, self.rla()),
-            0x18 => op!(2, 12, || todo!("unimplemented instruction")), // JR r8
+            0x18 => op!(2, 12, self.jr()),
             0x19 => op!(1, 8, self.add_hl_r16(self.registers.de())), // ADD HL, DE
             0x1a => op!(1, 8, self.ld_r8_a8(self.registers.de()) => self.registers.a),
             0x1b => op!(1, 8, self.dec_r16(self.registers.de()); |v| self.registers.set_de(v)),
@@ -380,7 +499,7 @@ impl CPU {
             0x1f => op!(1, 4, self.rra()),
 
             // 0x2X
-            0x20 => todo!("unimplemented instruction"), // JR NZ, r8
+            0x20 => op!(2, 0, self.jr_cc(!self.registers.f.zero_is_set())),
             0x21 => op!(3, 12, self.ld_r16_d16(); |v| self.registers.set_hl(v)),
             0x22 => op!(1, 8, self.ld_a8_r8_hlplus(self.registers.a)),
             0x23 => op!(1, 8, self.inc_r16(self.registers.hl()); |v| self.registers.set_hl(v)),
@@ -388,7 +507,7 @@ impl CPU {
             0x25 => op!(1, 4, self.dec_u8(self.registers.h) => self.registers.h),
             0x26 => op!(2, 8, self.ld_r8_d8() => self.registers.h),
             0x27 => op!(1, 4, self.daa()),
-            0x28 => todo!("unimplemented instruction"), // JR Z, r8
+            0x28 => op!(2, 0, self.jr_cc(self.registers.f.zero_is_set())),
             0x29 => op!(1, 8, self.add_hl_r16(self.registers.hl())), // ADD HL, HL
             0x2a => op!(1, 8, self.ld_r8_a8_hlplus() => self.registers.a),
             0x2b => op!(1, 8, self.dec_r16(self.registers.hl()); |v| self.registers.set_hl(v)),
@@ -398,7 +517,7 @@ impl CPU {
             0x2f => op!(1, 4, self.cpl()),
 
             // 0x3X
-            0x30 => todo!("unimplemented instruction"), // JR NC, r8
+            0x30 => op!(2, 0, self.jr_cc(!self.registers.f.carry_is_set())),
             0x31 => op!(3, 12, self.ld_r16_d16() => self.registers.sp),
             0x32 => op!(1, 8, self.ld_a8_r8_hlminus(self.registers.a)),
             0x33 => op!(1, 8, self.inc_r16(self.registers.sp) => self.registers.sp),
@@ -406,7 +525,7 @@ impl CPU {
             0x35 => op!(1, 12, self.dec_a8(self.registers.hl())), // DEC (HL)
             0x36 => op!(2, 12, self.ld_a8_d8(self.registers.hl())),
             0x37 => op!(1, 4, self.scf()),
-            0x38 => todo!("unimplemented instruction"), // JR C, r8
+            0x38 => op!(2, 0, self.jr_cc(self.registers.f.carry_is_set())),
             0x39 => op!(1, 8, self.add_hl_r16(self.registers.sp)), // ADD HL, SP
             0x3a => op!(1, 8, self.ld_r8_a8_hlminus() => self.registers.a),
             0x3b => op!(1, 8, self.dec_r16(self.registers.sp) => self.registers.sp),
@@ -567,50 +686,50 @@ impl CPU {
             0xbe => op!(1, 8, self.cp_a8(self.registers.hl())),
             0xbf => op!(1, 4, self.cp_r8(self.registers.a)),
 
-            0xc0 => todo!("unimplemented instruction"),
-            0xc1 => op!(1, 12, self.pop_r16(); |v| self.registers.set_bc(v)),
-            0xc2 => todo!("unimplemented instruction"),
-            0xc3 => todo!("unimplemented instruction"),
-            0xc4 => todo!("unimplemented instruction"),
-            0xc5 => op!(1, 16, self.push_r16(self.registers.bc())),
+            0xc0 => op!(1, 0, self.ret_cc(!self.registers.f.zero_is_set())),
+            0xc1 => op!(1, 12, self.pop(); |v| self.registers.set_bc(v)),
+            0xc2 => op!(3, 0, self.jp_cc(!self.registers.f.zero_is_set())),
+            0xc3 => op!(3, 16, self.jp()),
+            0xc4 => op!(3, 0, self.call_cc(!self.registers.f.zero_is_set())),
+            0xc5 => op!(1, 16, self.push(self.registers.bc())),
             0xc6 => todo!("unimplemented instruction"),
             0xc7 => todo!("unimplemented instruction"),
-            0xc8 => todo!("unimplemented instruction"),
-            0xc9 => todo!("unimplemented instruction"),
-            0xca => todo!("unimplemented instruction"),
-            0xcb => todo!("unimplemented instruction"),
-            0xcc => todo!("unimplemented instruction"),
-            0xcd => todo!("unimplemented instruction"),
+            0xc8 => op!(1, 0, self.ret_cc(self.registers.f.zero_is_set())),
+            0xc9 => op!(1, 16, self.ret()),
+            0xca => op!(3, 0, self.jp_cc(self.registers.f.zero_is_set())),
+            0xcb => panic!("prefixed instruction, should not be handled here"),
+            0xcc => op!(3, 0, self.call_cc(self.registers.f.zero_is_set())),
+            0xcd => op!(3, 24, self.call()),
             0xce => todo!("unimplemented instruction"),
             0xcf => todo!("unimplemented instruction"),
 
-            0xd0 => todo!("unimplemented instruction"),
-            0xd1 => op!(1, 12, self.pop_r16(); |v| self.registers.set_de(v)),
-            0xd2 => todo!("unimplemented instruction"),
+            0xd0 => op!(1, 0, self.ret_cc(!self.registers.f.carry_is_set())),
+            0xd1 => op!(1, 12, self.pop(); |v| self.registers.set_de(v)),
+            0xd2 => op!(3, 0, self.jp_cc(!self.registers.f.carry_is_set())),
             0xd3 => panic!("instruction does not exist"),
-            0xd4 => todo!("unimplemented instruction"),
-            0xd5 => op!(1, 16, self.push_r16(self.registers.de())),
+            0xd4 => op!(3, 0, self.call_cc(!self.registers.f.carry_is_set())),
+            0xd5 => op!(1, 16, self.push(self.registers.de())),
             0xd6 => todo!("unimplemented instruction"),
             0xd7 => todo!("unimplemented instruction"),
-            0xd8 => todo!("unimplemented instruction"),
-            0xd9 => todo!("unimplemented instruction"),
-            0xda => todo!("unimplemented instruction"),
+            0xd8 => op!(1, 0, self.ret_cc(self.registers.f.carry_is_set())),
+            0xd9 => op!(1, 16, self.reti()),
+            0xda => op!(3, 0, self.jp_cc(self.registers.f.carry_is_set())),
             0xdb => panic!("instruction does not exist"),
-            0xdc => todo!("unimplemented instruction"),
+            0xdc => op!(3, 0, self.call_cc(self.registers.f.carry_is_set())),
             0xdd => panic!("instruction does not exist"),
             0xde => todo!("unimplemented instruction"),
             0xdf => todo!("unimplemented instruction"),
 
             0xe0 => todo!("unimplemented instruction"),
-            0xe1 => op!(1, 12, self.pop_r16(); |v| self.registers.set_hl(v)),
+            0xe1 => op!(1, 12, self.pop(); |v| self.registers.set_hl(v)),
             0xe2 => todo!("unimplemented instruction"),
             0xe3 => panic!("instruction does not exist"),
             0xe4 => panic!("instruction does not exist"),
-            0xe5 => op!(1, 16, self.push_r16(self.registers.hl())),
+            0xe5 => op!(1, 16, self.push(self.registers.hl())),
             0xe6 => todo!("unimplemented instruction"),
             0xe7 => todo!("unimplemented instruction"),
             0xe8 => todo!("unimplemented instruction"),
-            0xe9 => todo!("unimplemented instruction"),
+            0xe9 => op!(1, 4, self.jp_hl()),
             0xea => todo!("unimplemented instruction"),
             0xeb => panic!("instruction does not exist"),
             0xec => panic!("instruction does not exist"),
@@ -619,11 +738,11 @@ impl CPU {
             0xef => todo!("unimplemented instruction"),
 
             0xf0 => todo!("unimplemented instruction"),
-            0xf1 => op!(1, 12, self.pop_r16(); |v| self.registers.set_af(v)),
+            0xf1 => op!(1, 12, self.pop(); |v| self.registers.set_af(v)),
             0xf2 => todo!("unimplemented instruction"),
             0xf3 => todo!("unimplemented instruction"),
             0xf4 => panic!("instruction does not exist"),
-            0xf5 => op!(1, 16, self.push_r16(self.registers.af())),
+            0xf5 => op!(1, 16, self.push(self.registers.af())),
             0xf6 => todo!("unimplemented instruction"),
             0xf7 => todo!("unimplemented instruction"),
             0xf8 => todo!("unimplemented instruction"),
@@ -815,7 +934,7 @@ impl CPU {
         let value = self.sra(self.bus.read_u8(addr));
         self.bus.write_u8(addr, value);
     }
-    
+
     fn srl_a8(&mut self, addr: u16) {
         let value = self.srl(self.bus.read_u8(addr));
         self.bus.write_u8(addr, value);
