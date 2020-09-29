@@ -54,14 +54,31 @@ impl CPU {
         todo!()
     }
 
+    /// Decimal Adjust Accumulator to get a correct BCD representation after
+    /// an arithmetic instruction.
+    /// - Cycles: 4
+    /// - Bytes: 1
+    /// - Flags:
+    ///     - Z: Set if result is 0
+    ///     - H: 0
+    ///     - C:
     fn daa(&self) {
         todo!()
     }
 
+    /// Disable interrupts by clearing the IME flag.
+    /// - Cycles: 4
+    /// - Bytes: 1
+    /// - Flags: None affected
     fn di(&self) {
         todo!()
     }
 
+    /// Enable interrupts by setting the IME flag. The flag is only set *after*
+    /// the instruction following `EI`.
+    /// - Cycles: 4
+    /// - Bytes: 1
+    /// - Flags: None affected
     fn ei(&self) {
         todo!()
     }
@@ -445,6 +462,13 @@ impl CPU {
         new_value
     }
 
+    /// Add the value in r16 to `HL`.
+    /// - Cycles: 8
+    /// - Bytes: 1
+    /// - Flags:
+    ///     - N: 0
+    ///     - H: Set if overflow from bit 11
+    ///     - C: Set if overflow from bit 15
     fn add_hl_r16(&mut self, value: u16) {
         let reg = self.reg.hl();
         let (new_value, overflow) = reg.overflowing_add(value);
