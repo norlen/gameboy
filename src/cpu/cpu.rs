@@ -157,7 +157,7 @@ impl CPU {
 
     /// Returns from subroutine. Pops the return address from the stack and
     /// jumps there.
-    /// - Cycles: 4
+    /// - Cycles: 16
     /// - Bytes: 1
     /// - Flags: None affected
     fn ret(&mut self) {
@@ -168,7 +168,7 @@ impl CPU {
     /// If the condition is met it perform a `ret` otherwise it does nothing.
     /// Note that this function adds cycles so do not call this from other
     /// functions.
-    /// - Cycles: 5 taken / 2 untaken
+    /// - Cycles: 20 taken / 8 untaken
     /// - Bytes: 1
     /// - Flags: None affected
     fn ret_cc(&mut self, condition: bool) {
@@ -181,12 +181,23 @@ impl CPU {
     }
 
     /// Returns from subroutine and enables interrupts.
-    /// - Cycles: 4
+    /// - Cycles: 16
     /// - Bytes: 1
     /// - Flags: None affected
     fn reti(&mut self) {
         // TODO: enable interrupts.
         self.ret();
+    }
+
+    /// Calls the address vec. Shorter and faster version of call.
+    /// - Cycles: 16
+    /// - Bytes: 1
+    /// - Flags: None affected
+    fn rst(&mut self, vec: u16) {
+        let next_address = self.pc + 3;
+        self.push(next_address);
+
+        self.pc = vec;
     }
 
     // -------------------------------------------------------------------------
@@ -791,7 +802,7 @@ impl CPU {
             0xc4 => op!(3, 0, self.call_cc(!self.reg.f.zero_is_set())),
             0xc5 => op!(1, 16, self.push(self.reg.bc())),
             0xc6 => op!(2, 8, self.add_a8(self.pc + 1)),
-            0xc7 => todo!("unimplemented instruction"),
+            0xc7 => op!(1, 16, self.rst(0x00)),
             0xc8 => op!(1, 0, self.ret_cc(self.reg.f.zero_is_set())),
             0xc9 => op!(1, 16, self.ret()),
             0xca => op!(3, 0, self.jp_cc(self.reg.f.zero_is_set())),
@@ -799,7 +810,7 @@ impl CPU {
             0xcc => op!(3, 0, self.call_cc(self.reg.f.zero_is_set())),
             0xcd => op!(3, 24, self.call()),
             0xce => op!(2, 8, self.adc_a8(self.pc + 1)),
-            0xcf => todo!("unimplemented instruction"),
+            0xcf => op!(1, 16, self.rst(0x08)),
 
             0xd0 => op!(1, 0, self.ret_cc(!self.reg.f.carry_is_set())),
             0xd1 => op!(1, 12, self.pop(); |v| self.reg.set_de(v)),
@@ -808,7 +819,7 @@ impl CPU {
             0xd4 => op!(3, 0, self.call_cc(!self.reg.f.carry_is_set())),
             0xd5 => op!(1, 16, self.push(self.reg.de())),
             0xd6 => op!(2, 8, self.sub_a8(self.pc + 1)),
-            0xd7 => todo!("unimplemented instruction"),
+            0xd7 => op!(1, 16, self.rst(0x10)),
             0xd8 => op!(1, 0, self.ret_cc(self.reg.f.carry_is_set())),
             0xd9 => op!(1, 16, self.reti()),
             0xda => op!(3, 0, self.jp_cc(self.reg.f.carry_is_set())),
@@ -816,7 +827,7 @@ impl CPU {
             0xdc => op!(3, 0, self.call_cc(self.reg.f.carry_is_set())),
             0xdd => panic!("instruction does not exist"),
             0xde => op!(2, 8, self.sbc_a8(self.pc + 1)),
-            0xdf => todo!("unimplemented instruction"),
+            0xdf => op!(1, 16, self.rst(0x18)),
 
             0xe0 => op!(2, 12, self.ldh_a8_a()),
             0xe1 => op!(1, 12, self.pop(); |v| self.reg.set_hl(v)),
@@ -825,7 +836,7 @@ impl CPU {
             0xe4 => panic!("instruction does not exist"),
             0xe5 => op!(1, 16, self.push(self.reg.hl())),
             0xe6 => op!(2, 8, self.and_a8(self.pc + 1)),
-            0xe7 => todo!("unimplemented instruction"),
+            0xe7 => op!(1, 16, self.rst(0x20)),
             0xe8 => op!(2, 16, self.add_sp_d8()),
             0xe9 => op!(1, 4, self.jp_hl()),
             0xea => op!(3, 16, self.ld_a8_r8(self.pc + 1, self.reg.a)),
@@ -833,7 +844,7 @@ impl CPU {
             0xec => panic!("instruction does not exist"),
             0xed => panic!("instruction does not exist"),
             0xee => op!(2, 8, self.xor_a8(self.pc + 1)),
-            0xef => todo!("unimplemented instruction"),
+            0xef => op!(1, 16, self.rst(0x28)),
 
             0xf0 => op!(2, 12, self.ldh_a_a8()),
             0xf1 => op!(1, 12, self.pop(); |v| self.reg.set_af(v)),
@@ -842,7 +853,7 @@ impl CPU {
             0xf4 => panic!("instruction does not exist"),
             0xf5 => op!(1, 16, self.push(self.reg.af())),
             0xf6 => op!(2, 8, self.or_a8(self.pc + 1)),
-            0xf7 => todo!("unimplemented instruction"),
+            0xf7 => op!(1, 16, self.rst(0x30)),
             0xf8 => op!(2, 12, self.ld_hl_sp_e8()),
             0xf9 => op!(1, 8, self.reg.sp = self.reg.hl()),
             0xfa => op!(3, 16, self.ld_r8_a8(self.pc + 1) => self.reg.a),
@@ -850,7 +861,7 @@ impl CPU {
             0xfc => panic!("instruction does not exist"),
             0xfd => panic!("instruction does not exist"),
             0xfe => op!(2, 8, self.cp_a8(self.pc + 1)),
-            0xff => todo!("unimplemented instruction"),
+            0xff => op!(1, 16, self.rst(0x38)),
         };
 
         todo!()
