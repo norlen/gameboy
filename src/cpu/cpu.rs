@@ -464,7 +464,6 @@ impl CPU {
 
     fn execute(&mut self, instruction: u8) -> u16 {
         let (_bytes, _cycles) = match instruction {
-            // 0x0X
             0x00 => op!(1, 4, self.nop()),
             0x01 => op!(3, 12, self.ld_r16_d16(); |v| self.reg.set_bc(v)),
             0x02 => op!(1, 8, self.ld_a8_r8(self.reg.bc(), self.reg.a)),
@@ -474,7 +473,7 @@ impl CPU {
             0x06 => op!(2, 8, self.ld_r8_d8() => self.reg.b),
             0x07 => op!(1, 4, self.rlca()),
             0x08 => op!(3, 20, self.ld_a16_sp()),
-            0x09 => op!(1, 8, self.add_hl_r16(self.reg.bc())), // ADD HL, BC
+            0x09 => op!(1, 8, self.add_hl_r16(self.reg.bc())),
             0x0a => op!(1, 8, self.ld_r8_a8(self.reg.bc()) => self.reg.a),
             0x0b => op!(1, 8, self.dec_r16(self.reg.bc()); |v| self.reg.set_bc(v)),
             0x0c => op!(1, 4, self.inc_u8(self.reg.c) => self.reg.c),
@@ -482,7 +481,6 @@ impl CPU {
             0x0e => op!(2, 8, self.ld_r8_d8() => self.reg.c),
             0x0f => op!(1, 4, self.rrca()),
 
-            // 0x1X
             0x10 => op!(1, 4, self.stop()),
             0x11 => op!(3, 12, self.ld_r16_d16(); |v| self.reg.set_de(v)),
             0x12 => op!(1, 8, self.ld_a8_r8(self.reg.de(), self.reg.a)),
@@ -492,15 +490,14 @@ impl CPU {
             0x16 => op!(2, 8, self.ld_r8_d8() => self.reg.d),
             0x17 => op!(1, 4, self.rla()),
             0x18 => op!(2, 12, self.jr()),
-            0x19 => op!(1, 8, self.add_hl_r16(self.reg.de())), // ADD HL, DE
+            0x19 => op!(1, 8, self.add_hl_r16(self.reg.de())),
             0x1a => op!(1, 8, self.ld_r8_a8(self.reg.de()) => self.reg.a),
             0x1b => op!(1, 8, self.dec_r16(self.reg.de()); |v| self.reg.set_de(v)),
-            0x1c => op!(1, 4, self.inc_u8(self.reg.e) => self.reg.e), // INC E
-            0x1d => op!(1, 4, self.dec_u8(self.reg.e) => self.reg.e), // DEC E
+            0x1c => op!(1, 4, self.inc_u8(self.reg.e) => self.reg.e),
+            0x1d => op!(1, 4, self.dec_u8(self.reg.e) => self.reg.e),
             0x1e => op!(2, 8, self.ld_r8_d8() => self.reg.e),
             0x1f => op!(1, 4, self.rra()),
 
-            // 0x2X
             0x20 => op!(2, 0, self.jr_cc(!self.reg.f.zero_is_set())),
             0x21 => op!(3, 12, self.ld_r16_d16(); |v| self.reg.set_hl(v)),
             0x22 => op!(1, 8, self.ld_a8_r8_hlplus(self.reg.a)),
@@ -510,29 +507,28 @@ impl CPU {
             0x26 => op!(2, 8, self.ld_r8_d8() => self.reg.h),
             0x27 => op!(1, 4, self.daa()),
             0x28 => op!(2, 0, self.jr_cc(self.reg.f.zero_is_set())),
-            0x29 => op!(1, 8, self.add_hl_r16(self.reg.hl())), // ADD HL, HL
+            0x29 => op!(1, 8, self.add_hl_r16(self.reg.hl())),
             0x2a => op!(1, 8, self.ld_r8_a8_hlplus() => self.reg.a),
             0x2b => op!(1, 8, self.dec_r16(self.reg.hl()); |v| self.reg.set_hl(v)),
-            0x2c => op!(1, 4, self.inc_u8(self.reg.l) => self.reg.l), // INC L
-            0x2d => op!(1, 4, self.dec_u8(self.reg.l) => self.reg.l), // DEC L
+            0x2c => op!(1, 4, self.inc_u8(self.reg.l) => self.reg.l),
+            0x2d => op!(1, 4, self.dec_u8(self.reg.l) => self.reg.l),
             0x2e => op!(2, 8, self.ld_r8_d8() => self.reg.l),
             0x2f => op!(1, 4, self.cpl()),
 
-            // 0x3X
             0x30 => op!(2, 0, self.jr_cc(!self.reg.f.carry_is_set())),
             0x31 => op!(3, 12, self.ld_r16_d16() => self.reg.sp),
             0x32 => op!(1, 8, self.ld_a8_r8_hlminus(self.reg.a)),
             0x33 => op!(1, 8, self.inc_r16(self.reg.sp) => self.reg.sp),
-            0x34 => op!(1, 12, self.inc_a8(self.reg.hl())), // INC (HL)
-            0x35 => op!(1, 12, self.dec_a8(self.reg.hl())), // DEC (HL)
+            0x34 => op!(1, 12, self.inc_a8(self.reg.hl())),
+            0x35 => op!(1, 12, self.dec_a8(self.reg.hl())),
             0x36 => op!(2, 12, self.ld_a8_d8(self.reg.hl())),
             0x37 => op!(1, 4, self.scf()),
             0x38 => op!(2, 0, self.jr_cc(self.reg.f.carry_is_set())),
-            0x39 => op!(1, 8, self.add_hl_r16(self.reg.sp)), // ADD HL, SP
+            0x39 => op!(1, 8, self.add_hl_r16(self.reg.sp)),
             0x3a => op!(1, 8, self.ld_r8_a8_hlminus() => self.reg.a),
             0x3b => op!(1, 8, self.dec_r16(self.reg.sp) => self.reg.sp),
-            0x3c => op!(1, 4,self.inc_u8(self.reg.a) => self.reg.a), // INC A
-            0x3d => op!(1, 4,self.dec_u8(self.reg.a) => self.reg.a), // DEC A
+            0x3c => op!(1, 4,self.inc_u8(self.reg.a) => self.reg.a),
+            0x3d => op!(1, 4,self.dec_u8(self.reg.a) => self.reg.a),
             0x3e => op!(2, 8,self.ld_r8_d8() => self.reg.a),
             0x3f => op!(1, 4, self.ccf()),
 
